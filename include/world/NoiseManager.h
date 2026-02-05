@@ -1,0 +1,8 @@
+//
+// Created by synx on 2/4/26.
+//
+
+#ifndef PWORLDENGINE_NOISEMANAGER_H
+#define PWORLDENGINE_NOISEMANAGER_H
+
+#endif //PWORLDENGINE_NOISEMANAGER_H
