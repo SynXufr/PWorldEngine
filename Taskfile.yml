@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  BUILD_DIR: build
+  BINARY_NAME: PWorldEngine
+  GENERATOR: '{{if eq OS "windows"}}"MinGW Makefiles"{{else}}"Unix Makefiles"{{end}}'
+
+tasks:
+  setup:
+    desc: "Initialize the build directory"
+    cmds:
+      - cmake -B {{.BUILD_DIR}} -G {{.GENERATOR}} -DCMAKE_BUILD_TYPE=Debug
+    status:
+      - test -d {{.BUILD_DIR}}
+
+  build:
+    desc: "Compile the project"
+    deps: [ setup ]
+    cmds:
+      - cmake --build {{.BUILD_DIR}} --config Debug
+    sources:
+      - src/**/*.cpp
+      - include/**/*.hpp
+      - CMakeLists.txt
+
+  run:
+    desc: "Build and run the engine"
+    deps: [ build ]
+    cmds:
+      - ./{{.BUILD_DIR}}/bin/{{.BINARY_NAME}}
+
+  clean:
+    desc: "Remove build artifacts"
+    cmds:
+      - rm -rf {{.BUILD_DIR}}{{end}}
+
+  rebuild:
+    desc: "Fresh build from scratch"
+    cmds:
+      - task: clean
+      - task: build
