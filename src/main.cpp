@@ -1,97 +1,126 @@
 #include "raylib.h"
-#include "FastNoiseLite.h"
+#include "raymath.h"
+#include "world/NoiseManager.h"
 
-int main()
-{
+int main() {
     // Initialization
     //--------------------------------------------------------------------------------------
-    const int screenWidth = 1000;
-    const int screenHeight = 1000;
+    const int screenWidth = 1600;
+    const int screenHeight = 800;
+    const int mapSize = 256;
 
-    float centerX = screenWidth / 2.0f;
-    float centerY = screenHeight / 2.0f;
-    float maxDistance = screenWidth / 2.0f;
+    float frequency = 0.02f;
+    int seed = 1337;
 
     InitWindow(screenWidth, screenHeight, "Generative World Engine");
 
-    // Initialize FastNoiseLite
-    FastNoiseLite noise;
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    float frequency = 0.01f;
-    int seed = 1337;
+    NoiseManager noiseManager(mapSize, frequency, seed);
 
-    // Image and texture to store noise
-    Image noiseImg = GenImageColor(screenWidth, screenHeight, BLACK);
-    Texture2D noiseTex = LoadTextureFromImage(noiseImg);
+    // Render texture for 3D view
+    RenderTexture2D renderTexture3D = LoadRenderTexture(screenWidth / 2, screenHeight);
 
-    // 3D Noise
-    float zOffset = 0.0f;
+    // Set up 3D Camera
+    Camera3D camera = {0};
+    camera.position = (Vector3){40.0f, 30.0f, 40.0f};
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+    camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_PERSPECTIVE;
 
-    SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
+    SetTargetFPS(60);
     //--------------------------------------------------------------------------------------
 
+    // 3D Model
+    Vector3 meshSize = {50.0f, 15, 50.0f};
+    noiseManager.UpdateNoise();
+    Mesh mesh = GenMeshHeightmap(noiseManager.heightmap, meshSize);
+    Model model = LoadModelFromMesh(mesh);
+
+    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = LoadTextureFromImage(noiseManager.colormap);
+
     // Main game loop
-    while (!WindowShouldClose())    // Detect window close button or ESC key
+    while (!WindowShouldClose())
     {
         // --- INPUT ---
-        if (IsKeyDown(KEY_UP)) frequency += 0.0005f;
-        if (IsKeyDown(KEY_DOWN)) frequency -= 0.0005f;
-        if (IsKeyDown(KEY_RIGHT)) zOffset += 5.0f;
-        if (IsKeyDown(KEY_LEFT)) zOffset -= 5.0f;
-        if (IsKeyDown(KEY_SPACE)) noise.SetSeed(++seed);
+        if (IsKeyDown(KEY_UP)) {
+            frequency += 0.0005f;
+            noiseManager.SetFrequency(frequency);
+        }
+        if (IsKeyDown(KEY_DOWN)) {
+            frequency -= 0.0005f;
+            noiseManager.SetFrequency(frequency);
+        }
+        if (IsKeyDown(KEY_RIGHT)) {
+            noiseManager.SetZOffset(noiseManager.GetZOffset() + 1.0f);
+        }
+        if (IsKeyDown(KEY_LEFT)) {
+            noiseManager.SetZOffset(noiseManager.GetZOffset() - 1.0f);
+        }
+        if (IsKeyDown(KEY_SPACE)) {
+            noiseManager.SetSeed(++seed);
+        }
+        if (IsKeyDown(KEY_W)) camera.position.y += 0.5f;
+        if (IsKeyDown(KEY_S)) camera.position.y -= 0.5f;
 
-        // --- GENERATE NOISE MAP ---
-        for (int y = 0; y < screenHeight; y++) {
-            for (int x = 0; x < screenWidth; x++) {
-                noise.SetFrequency(frequency);
-
-                float noiseValue = noise.GetNoise((float)x, (float)y, zOffset);
-
-                float dx = x - centerX;
-                float dy = y - centerY;
-                float distance = sqrtf(dx*dx + dy*dy) / maxDistance;
-
-                float mask = 1.0f - distance;
-                if (mask < 0) mask = 0;
-
-                float islandHeight = noiseValue + (mask * 2.0f - 1.0f);
-
-
-
-
-                unsigned char colorVal = (unsigned char)((islandHeight + 1.0f) * 0.5f * 255);
-
-                // GRAYSCALE
-                // Color pixelColor = { colorVal, colorVal, colorVal, 255 };
-
-                // COLOR
-                Color pixelColor;
-                if (islandHeight < -0.2f) pixelColor = BLUE;
-                else if (islandHeight < 0.1f) pixelColor = GOLD;
-                else if (islandHeight < 0.5f) pixelColor = LIME;
-                else pixelColor = GRAY;
-
-                ImageDrawPixel(&noiseImg, x, y, pixelColor);
-            }
+        if (model.meshCount > 0) {
+            UnloadTexture(model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture);
+            UnloadModel(model);
         }
 
-        UpdateTexture(noiseTex, noiseImg.data);
+        // --- GENERATE NOISE MAP ---
+        noiseManager.UpdateNoise();
+
+        // Regenerate model and texture
+        Mesh newMesh = GenMeshHeightmap(noiseManager.heightmap, meshSize);
+        model = LoadModelFromMesh(newMesh);
+
+        Texture2D currentTex = LoadTextureFromImage(noiseManager.colormap);
+        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = currentTex;
+
+        UpdateCamera(&camera, CAMERA_ORBITAL);
+
+        // Render 3D view to texture
+        BeginTextureMode(renderTexture3D);
+            ClearBackground(DARKGRAY);
+            BeginMode3D(camera);
+                if (model.meshCount > 0) DrawModel(model, (Vector3){-25, 0, -25}, 1.0f, WHITE);
+                DrawPlane((Vector3){0, 1.2f, 0}, (Vector2){60, 60}, Fade(BLUE, 0.4f));
+                DrawGrid(20, 1.0f);
+            EndMode3D();
+        EndTextureMode();
 
         BeginDrawing();
-            ClearBackground(BLACK);
-            DrawTexture(noiseTex, 0, 0, WHITE);
+            ClearBackground(DARKGRAY);
 
-            DrawRectangle(10, 10, 250, 70, Fade(BLACK, 0.5f));
-            DrawText(TextFormat("Frequency: %.4f", frequency), 20, 20, 20, WHITE);
-            DrawText(TextFormat("Z Offset: %.1f", zOffset), 20, 40, 20, WHITE);
+            DrawTexturePro(currentTex,
+                (Rectangle){0, 0, (float)mapSize, (float)mapSize},
+                (Rectangle){0, 0, (float)screenWidth / 2, (float)screenHeight},
+                (Vector2){ 0, 0 }, 0.0f, WHITE);
+
+            DrawText("2D Heightmap", 20, screenHeight - 40, 20, YELLOW);
+            DrawLine(screenWidth / 2, 0, screenWidth / 2, screenHeight, RAYWHITE);
+
+            DrawTexturePro(renderTexture3D.texture,
+                (Rectangle){0, 0, (float)screenWidth / 2, -(float)screenHeight},
+                (Rectangle){(float)screenWidth / 2, 0, (float)screenWidth / 2, (float)screenHeight},
+                (Vector2){ 0, 0 }, 0.0f, WHITE);
+
+            DrawText("3D World View", screenWidth / 2 + 20, screenHeight - 40, 20, YELLOW);
+
+            DrawRectangle(10, 10, 250, 80, Fade(BLACK, 0.5f));
+            DrawText(TextFormat("Frequency: %.4f", noiseManager.GetFrequency()), 20, 20, 20, WHITE);
+            DrawText(TextFormat("Z Offset: %.1f", noiseManager.GetZOffset()), 20, 40, 20, WHITE);
         EndDrawing();
+
+        UnloadTexture(currentTex);
     }
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
-    UnloadTexture(noiseTex);
-    UnloadImage(noiseImg);
-    CloseWindow();        // Close window and OpenGL context
+    UnloadRenderTexture(renderTexture3D);
+    UnloadImage(noiseManager.heightmap);
+    UnloadImage(noiseManager.colormap);
+    CloseWindow();
     //--------------------------------------------------------------------------------------
 
     return 0;
