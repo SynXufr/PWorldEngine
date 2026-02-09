@@ -23,13 +23,9 @@ set(BUILD_GAMES    OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(raylib)
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
-file(GLOB_RECURSE HEADERS "include/*.hpp")
+file(GLOB_RECURSE HEADERS "include/*.hpp" "include/*.h")
 
-add_executable(PWorldEngine ${SOURCES} ${HEADERS}
-        src/world/NoiseManager.cpp
-        include/world/NoiseManager.h
-        src/core/CameraManager.cpp
-        include/core/CameraManager.h)
+add_executable(PWorldEngine ${SOURCES} ${HEADERS})
 
 add_library(FastNoiseLite INTERFACE)
 
