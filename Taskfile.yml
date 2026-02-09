@@ -12,6 +12,7 @@ tasks:
     desc: "Initialize the build directory"
     cmds:
       - cmake -B {{.BUILD_DIR}} -G {{.GENERATOR}} -DCMAKE_BUILD_TYPE=Debug
+      - mkdir -p assets
     status:
       - test -d {{.BUILD_DIR}}
 
@@ -34,7 +35,7 @@ tasks:
   clean:
     desc: "Remove build artifacts"
     cmds:
-      - rm -rf {{.BUILD_DIR}}{{end}}
+      - rm -rf {{.BUILD_DIR}}
 
   rebuild:
     desc: "Fresh build from scratch"
