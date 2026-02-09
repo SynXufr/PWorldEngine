@@ -26,6 +26,12 @@ tasks:
       - include/**/*.hpp
       - CMakeLists.txt
 
+  package:
+    desc: Package the build artifacts
+    cmds:
+      - cmake --install build --prefix dist
+      - tar -czvf release.tar.gz -C dist .
+
   run:
     desc: "Build and run the engine"
     deps: [ build ]
