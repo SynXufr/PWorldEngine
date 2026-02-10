@@ -35,6 +35,13 @@ target_include_directories(PWorldEngine PUBLIC include/external)
 target_link_libraries(PWorldEngine PUBLIC raylib)
 target_link_libraries(PWorldEngine PRIVATE FastNoiseLite)
 
+install(TARGETS PWorldEngine
+        RUNTIME DESTINATION bin    # Executables
+        LIBRARY DESTINATION lib    # Shared libs
+        ARCHIVE DESTINATION lib)   # Static libs
+
+install(DIRECTORY assets/ DESTINATION bin/assets)
+
 # copy files to build folder
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
