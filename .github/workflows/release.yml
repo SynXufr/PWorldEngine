@@ -1,0 +1,60 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Task (go-task/task)
+        # You may pin to the exact commit or the version.
+        # uses: tenthirtyam/setup-task@7ce887a254d75f90c00d2f42ab964677c4439238
+        uses: tenthirtyam/setup-task@v1.0.1
+        with:
+          # Specifies the Task version to install (e.g., 'latest', '3.42.0'). Conflicts with 'version-from-file' as they are mutually exclusive.
+          version: # optional, default is latest
+          # Path to a file containing the Task version to install (e.g., '.task-version'). Conflicts with 'version' as they are mutually exclusive.
+          version-from-file: # optional, default is 
+          # Determines whether to skip using the cache.
+          skip-cache: # optional, default is false
+          # A GitHub token to use for authentication. Defaults to the GITHUB_TOKEN secret.
+          github-token: # optional, default is 
+          # Enable detailed logging for debugging purposes.
+          verbose: # optional, default is false
+          # Custom variables for the Task CLI, provided as a YAML map.
+          vars: # optional, default is {}
+      - name: cmake-configure
+        # You may pin to the exact commit or the version.
+        # uses: snickerbockers/cmake-configure@34c25d17135428976b13963a8e5e3b1b0b277fd1
+        uses: snickerbockers/cmake-configure@prerel1
+      - name: Install Raylib Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxcursor-dev libxinerama-dev \
+                                 libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev
+      - name: Build Project
+        run: task build
+      - name: Package Project
+        run: task package
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v6.0.0
+        with:
+          # Artifact name
+          name: binary-payload # optional, default is artifact
+          # A file, directory or wildcard pattern that describes what to upload
+          path: release.tar.gz
+          # The desired behavior if no files are found using the provided path.
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
